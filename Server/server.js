@@ -1,24 +1,25 @@
 const express = require("express");
-const http = require('http');
-const { Server } = require("socket.io");
+const crypto = require("crypto");
 require('dotenv').config()
 
 const app = express();
-const server = http.createServer(app);
-const io = new Server(server);
-
 const port = process.env.PORT || 8080
-const url = process.env.URL
+
+let serverPublicKey = "";
+let serverPrivateKey = "";
 
 
 app.get("/", (req, res) => {
-    res.send("Hello world")
+    res.send(serverPublicKey)
 })
 
-io.on("connection", (socket) => {
-    console.log("Connection")
-})
 
-server.listen(port,()=>{
+app.listen(port,()=>{
     console.log(`Server Started at port ${port}`);
+    console.log("Generating the keys");
+    const { publicKey, privateKey } = crypto.generateKeyPairSync("rsa", {
+      modulusLength: 2048,
+    });
+    serverPublicKey = publicKey.export({format:"pem",type:"pkcs1"});
+    serverPrivateKey = privateKey;
 })
