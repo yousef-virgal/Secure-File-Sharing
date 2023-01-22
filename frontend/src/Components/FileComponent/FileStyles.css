@@ -1,0 +1,34 @@
+.File {
+    width: 15rem;
+    height: 10rem;
+    background-color: white;
+    border-radius: 5px;
+    box-shadow: 0 0 5px 2px gray;
+    padding: 5px;
+    display: inline-block;
+    margin: 10px;
+    cursor: pointer;
+    display: inline-block;
+}
+
+.FileImage {
+    overflow: hidden;
+    border-radius: 5px;
+    width: 100%;
+    height: 60%;
+}
+
+svg {
+    height: 100%;
+    width: 100%;
+}
+
+.FileText {
+    font-size: 1.2rem;
+    font-weight: bold;
+    text-align: start;
+    padding: 0 2rem 0 4px;
+    width: 100%;
+    overflow: hidden;
+    margin: 5% 0;
+}
