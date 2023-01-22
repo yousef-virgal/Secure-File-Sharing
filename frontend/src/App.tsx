@@ -6,10 +6,11 @@ import { PuplicKey, PrivateKey, KeyPair, SymmetricKeys } from "./KeyInterface/Ke
 import { FileInterface } from "./FileInterface/FileInterface";
 import { ENCRYPTION_ALGORITHMS } from './EncryptionConstants/constants';
 import FileContainer from './Components/FileContainer/FileContainer';
+import UploadComponent from './Components/UploadComponent/uploadComponent';
 import { FileProps } from "./Components/FileComponent/FileComponentInterface";
 
-import "./"
 import './App.css';
+import 'bootstrap/dist/css/bootstrap.min.css';
 
 function App() {
   const [serverPublicKey, setServerPublicKey] = useState<PuplicKey>({});
@@ -78,13 +79,13 @@ function App() {
 
   const handleFileInput = (event: any) => {
     let file = event.target.files[0];
-    let reader = new FileReader(); 
+    let reader = new FileReader();
     reader.readAsText(file);
 
     reader.onload = function () {
       setFileContent({
         fileName: file.name,
-        fileContent: reader.result as string 
+        fileContent: reader.result as string
       });
     };
 
@@ -130,9 +131,9 @@ function App() {
     for (let i = 0; i < textBuffer.byteLength; i += 64) {
       let currentString: any = "";
 
-      if (i + 64 > textBuffer.byteLength){
+      if (i + 64 > textBuffer.byteLength) {
         let finalData = new Uint8Array(64);
-        finalData.set(new Uint8Array(textBuffer.slice(i, textBuffer.byteLength)),0);
+        finalData.set(new Uint8Array(textBuffer.slice(i, textBuffer.byteLength)), 0);
         currentString = dec.decode(finalData);
       }
       else
@@ -141,7 +142,7 @@ function App() {
       // currentString = CryptoJS.enc.Latin1.parse(currentString);
       switch (encryptionAlgo) {
         case ENCRYPTION_ALGORITHMS.DES:
-          let encryptedDesText = CryptoJS.DES.encrypt( currentString , desKey, { iv: iv, padding: CryptoJS.pad.NoPadding });
+          let encryptedDesText = CryptoJS.DES.encrypt(currentString, desKey, { iv: iv, padding: CryptoJS.pad.NoPadding });
 
           if (encryptedDesText.toString().length > 9)
             fullEncrpyptedText += encryptedDesText.toString().length + encryptedDesText.toString();
@@ -152,7 +153,7 @@ function App() {
           break;
 
         case ENCRYPTION_ALGORITHMS.AES:
-          let encryptedAesText = CryptoJS.AES.encrypt( currentString , aesKey, { iv: iv, padding: CryptoJS.pad.NoPadding });
+          let encryptedAesText = CryptoJS.AES.encrypt(currentString, aesKey, { iv: iv, padding: CryptoJS.pad.NoPadding });
           if (encryptedAesText.toString().length > 9)
             fullEncrpyptedText += encryptedAesText.toString().length + encryptedAesText.toString();
           else
@@ -195,7 +196,7 @@ function App() {
     })
   };
 
-  const fromHexString = (hexString:any) => Uint8Array.from(hexString.match(/.{1,2}/g).map((byte:any) => parseInt(byte, 16)));
+  const fromHexString = (hexString: any) => Uint8Array.from(hexString.match(/.{1,2}/g).map((byte: any) => parseInt(byte, 16)));
   const decryptFile = (id: string) => {
     fetch(`${process.env.REACT_APP_BACKEND_URL}:${process.env.REACT_APP_BACKEND_PORT}/documents/${id}`, {
       method: "POST",
@@ -216,11 +217,11 @@ function App() {
         const decryptedKeys = CryptoJS.DES.decrypt(data.keys, CryptoJS.enc.Hex.parse(masterKey as string), { iv: CryptoJS.enc.Hex.parse(iv as string), padding: CryptoJS.pad.NoPadding }).toString(CryptoJS.enc.Latin1);
         const [desKey, aesKey, tripleDesKey] = decryptedKeys.split("\n");
 
-        const fileData:string = data.file;
+        const fileData: string = data.file;
         let i = 0;
         let decryptedText = "";
         let currentAlgo = ENCRYPTION_ALGORITHMS.DES;
-       
+
         while (i < fileData.length) {
           let forwardLength: number = parseInt(fileData.slice(i, i + 2));
           switch (currentAlgo) {
@@ -238,17 +239,17 @@ function App() {
 
             case ENCRYPTION_ALGORITHMS.TRIPLE_DES:
               const tripleDesDec = CryptoJS.TripleDES.decrypt(fileData.slice(i + 2, i + forwardLength + 2), CryptoJS.enc.Hex.parse(tripleDesKey.slice(0, tripleDesKey.length - 9) as string), { iv: CryptoJS.enc.Hex.parse(iv as string), padding: CryptoJS.pad.NoPadding });
-              decryptedText +=new TextDecoder().decode(fromHexString(tripleDesDec.toString()));
+              decryptedText += new TextDecoder().decode(fromHexString(tripleDesDec.toString()));
               currentAlgo = ENCRYPTION_ALGORITHMS.DES;
               break;
           }
           i += forwardLength + 2;
         }
-        downloadFile(data.fileName,decryptedText);
+        downloadFile(data.fileName, decryptedText);
       });
   }
 
-  const downloadFile = (filename:string, text:string) => {
+  const downloadFile = (filename: string, text: string) => {
     let element = document.createElement('a');
     const file = new Blob([text], { type: 'text/plain' });
     element.href = URL.createObjectURL(file);
@@ -256,14 +257,12 @@ function App() {
     element.style.display = 'none';
     element.click();
     URL.revokeObjectURL(element.href);
-  
+
   }
 
   return (
     <div className="App">
-      <button style={{ display: "block", margin: "10px auto" }} onClick={buttonHandler}>Upload File</button>
-      <input type="file" onChange={handleFileInput} />
-
+      <UploadComponent uploadButtonHandler={buttonHandler} fileHandler={handleFileInput} />
       <FileContainer fileHanlderFunction={decryptFile} Files={files} />
     </div>
   );
