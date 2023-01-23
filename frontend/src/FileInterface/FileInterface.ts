@@ -1,4 +1,4 @@
 export interface FileInterface {
-    fileContent?: string;
+    fileContent?: ArrayBuffer;
     fileName?: string;
 }

@@ -9,13 +9,13 @@ const firebaseConfig = require("./firebaseConfig");
 const { response } = require("express");
 require("dotenv").config();
 
-const app = express();
-app.use(bodyParser.json({limit:"50mb"})); 
+const app = express(); 
+app.use(bodyParser.json({limit:"5000mb"})); 
 
 const jsonParser = bodyParser.json();
 app.use(cors());
 const port = process.env.PORT || 8080;
- 
+  
 let serverPublicKey = "";
 let serverPrivateKey = "";
 
@@ -56,8 +56,9 @@ app.post("/", jsonParser, (req, res) => {
     master_key: decryptedMasterKey,  
     id: docRef.id,
     iv: decryptedIVString,
-    fileName: req.body.name 
+    fileName: req.body.name  
   });
+  res.sendStatus(200);
 });
 
 app.get("/documents", async (req, res) => {

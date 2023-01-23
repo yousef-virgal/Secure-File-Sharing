@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { generateKey, encrypt, decrypt } from "js-crypto-rsa";
 import CryptoJS from "crypto-js";
+import arrayBufferToHex from "array-buffer-to-hex"
 
 import { PuplicKey, PrivateKey, KeyPair, SymmetricKeys } from "./KeyInterface/KeyInterface"
 import { FileInterface } from "./FileInterface/FileInterface";
@@ -80,12 +81,12 @@ function App() {
   const handleFileInput = (event: any) => {
     let file = event.target.files[0];
     let reader = new FileReader();
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
 
     reader.onload = function () {
       setFileContent({
         fileName: file.name,
-        fileContent: reader.result as string
+        fileContent: reader.result as ArrayBuffer
       });
     };
 
@@ -109,7 +110,7 @@ function App() {
 
 
   const buttonHandler = (event: any) => {
-    if (fileContent.fileContent === "") {
+    if (!fileContent.fileContent) {
       alert("No File Is Chosen");
       return;
     }
@@ -124,26 +125,24 @@ function App() {
 
     let encryptionAlgo = ENCRYPTION_ALGORITHMS.DES;
 
-    const textBuffer = enc.encode(fileContent.fileContent).buffer;
+    // const textBuffer = enc.encode(fileContent.fileContent).buffer;
     let fullEncrpyptedText = "";
 
     //split with constant 32 value
-    for (let i = 0; i < textBuffer.byteLength; i += 64) {
+    for (let i = 0; i < fileContent.fileContent.byteLength; i += 32) {
       let currentString: any = "";
 
-      if (i + 64 > textBuffer.byteLength) {
-        let finalData = new Uint8Array(64);
-        finalData.set(new Uint8Array(textBuffer.slice(i, textBuffer.byteLength)), 0);
-        currentString = dec.decode(finalData);
+      if (i + 32 > fileContent.fileContent.byteLength) {
+        let finalData = new Uint8Array(fileContent.fileContent.slice(i, fileContent.fileContent.byteLength));
+        currentString = arrayBufferToHex(finalData);
       }
-      else
-        currentString = dec.decode(new Uint8Array(textBuffer.slice(i, i + 64)));
+      else {
+        currentString = arrayBufferToHex(new Uint8Array(fileContent.fileContent.slice(i, i + 32)));
+      }
 
-      // currentString = CryptoJS.enc.Latin1.parse(currentString);
       switch (encryptionAlgo) {
         case ENCRYPTION_ALGORITHMS.DES:
           let encryptedDesText = CryptoJS.DES.encrypt(currentString, desKey, { iv: iv, padding: CryptoJS.pad.NoPadding });
-
           if (encryptedDesText.toString().length > 9)
             fullEncrpyptedText += encryptedDesText.toString().length + encryptedDesText.toString();
           else
@@ -177,8 +176,9 @@ function App() {
     }
 
     const encryptedKeys = encryptKeys();
+
     encrypt(enc.encode(symmetricKeys.masterKey), serverPublicKey).then(async (result) => {
-      fetch(`${process.env.REACT_APP_BACKEND_URL}:${process.env.REACT_APP_BACKEND_PORT}`, {
+      await fetch(`${process.env.REACT_APP_BACKEND_URL}:${process.env.REACT_APP_BACKEND_PORT}`, {
         method: "POST", headers: {
           Accept: 'application.json',
           'Content-Type': 'application/json',
@@ -193,10 +193,16 @@ function App() {
         }),
         cache: 'default'
       })
+      window.location.reload();
     })
   };
 
-  const fromHexString = (hexString: any) => Uint8Array.from(hexString.match(/.{1,2}/g).map((byte: any) => parseInt(byte, 16)));
+  const fromHexString = (hexString: any) => {
+    return Uint8Array.from(hexString.match(/.{1,2}/g).map((byte: any) => {
+      return parseInt(byte, 16);
+    }))
+  }
+
   const decryptFile = (id: string) => {
     fetch(`${process.env.REACT_APP_BACKEND_URL}:${process.env.REACT_APP_BACKEND_PORT}/documents/${id}`, {
       method: "POST",
@@ -219,7 +225,7 @@ function App() {
 
         const fileData: string = data.file;
         let i = 0;
-        let decryptedText = "";
+        let decryptedText:number[] = [];
         let currentAlgo = ENCRYPTION_ALGORITHMS.DES;
 
         while (i < fileData.length) {
@@ -227,19 +233,19 @@ function App() {
           switch (currentAlgo) {
             case ENCRYPTION_ALGORITHMS.DES:
               const desDec = CryptoJS.DES.decrypt(fileData.slice(i + 2, i + forwardLength + 2), CryptoJS.enc.Hex.parse(desKey as string), { iv: CryptoJS.enc.Hex.parse(iv as string), padding: CryptoJS.pad.NoPadding });
-              decryptedText += new TextDecoder().decode(fromHexString(desDec.toString()));
+              decryptedText = decryptedText.concat(Array.from(fromHexString(new TextDecoder().decode(fromHexString(desDec.toString(CryptoJS.enc.Hex))))));
               currentAlgo = ENCRYPTION_ALGORITHMS.AES;
               break;
 
             case ENCRYPTION_ALGORITHMS.AES:
               const aesDec = CryptoJS.AES.decrypt(fileData.slice(i + 2, i + forwardLength + 2), CryptoJS.enc.Hex.parse(aesKey as string), { iv: CryptoJS.enc.Hex.parse(iv as string), padding: CryptoJS.pad.NoPadding });
-              decryptedText += new TextDecoder().decode(fromHexString(aesDec.toString()));
+              decryptedText = decryptedText.concat(Array.from(fromHexString(new TextDecoder().decode(fromHexString(aesDec.toString(CryptoJS.enc.Hex))))));
               currentAlgo = ENCRYPTION_ALGORITHMS.TRIPLE_DES;
               break;
 
             case ENCRYPTION_ALGORITHMS.TRIPLE_DES:
               const tripleDesDec = CryptoJS.TripleDES.decrypt(fileData.slice(i + 2, i + forwardLength + 2), CryptoJS.enc.Hex.parse(tripleDesKey.slice(0, tripleDesKey.length - 9) as string), { iv: CryptoJS.enc.Hex.parse(iv as string), padding: CryptoJS.pad.NoPadding });
-              decryptedText += new TextDecoder().decode(fromHexString(tripleDesDec.toString()));
+              decryptedText = decryptedText.concat(Array.from(fromHexString(new TextDecoder().decode(fromHexString(tripleDesDec.toString(CryptoJS.enc.Hex))))));
               currentAlgo = ENCRYPTION_ALGORITHMS.DES;
               break;
           }
@@ -249,9 +255,9 @@ function App() {
       });
   }
 
-  const downloadFile = (filename: string, text: string) => {
+  const downloadFile = (filename: string, text: number[]) => {
     let element = document.createElement('a');
-    const file = new Blob([text], { type: 'text/plain' });
+    const file = new Blob([new Uint8Array(text)]);
     element.href = URL.createObjectURL(file);
     element.download = filename;
     element.style.display = 'none';
